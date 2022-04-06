@@ -1,0 +1,49 @@
+#libs
+library(tidyverse)
+library(gganimate)
+library(gifski)
+library(ggmap)
+
+
+# read csv with lat long data
+latlong<- read.csv("latlong.csv")
+
+#read in data
+tuesdata <- tidytuesdayR::tt_load(2022, week = 14)
+news_orgs <- tuesdata$news_orgs
+
+#build dataframe
+df_news_orgs<- news_orgs%>%
+  mutate(year=year(as.Date(as.character(year_founded), format="%Y")))%>%
+  mutate(underrepresented=ifelse(!is.na(underrepresented_communities) | !is.na(underrepresented_communities_not_listed),1,0))%>%
+  group_by(city, state, year)%>%
+  summarise(count=sum(underrepresented))%>%
+  left_join(latlong %>% select(city, state_id, lat, lng), by=c('city', 'state'='state_id'))%>%
+  na.omit()%>%
+  filter(state!='HI', state!='PR')
+
+#plot base map
+base_map<-ggplot(data = map_data("state"), aes(long, lat, group=group))+
+  geom_polygon(color="gray62", fill="white")+
+  coord_quickmap()+
+  theme_void()
+
+
+#add data
+map_with_data <- base_map+
+  geom_point(data =df_news_orgs, aes(lng, lat, group=year), size=3, color='magenta4', alpha=.8)+
+  theme_void()
+
+#animate
+map_with_animation<- map_with_data +
+  transition_time(year)+
+  ggtitle('Location of Digital Publishers Serving Underrepresented Communities Over Time
+          ',
+          subtitle = 'Year: {frame_time}')+
+  shadow_mark()+
+  theme(plot.title = element_text(size = 12, face = 'bold'))+
+  labs(caption = 'Visualization: @gilcbernard | Source: ProjectOasis')
+num_years <- max(df_news_orgs$year) - min(df_news_orgs$year) + 1
+
+
+animate(map_with_animation, nframes = num_years, fps=8)
