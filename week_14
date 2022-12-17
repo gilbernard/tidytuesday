@@ -47,3 +47,5 @@ num_years <- max(df_news_orgs$year) - min(df_news_orgs$year) + 1
 
 
 animate(map_with_animation, nframes = num_years, fps=8)
+
+library()
