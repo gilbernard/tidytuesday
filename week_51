@@ -1,0 +1,41 @@
+library(tidyverse)
+library(tidytuesdayR)
+library(ggmap)
+library(usmap)
+
+tuesdata <- tidytuesdayR::tt_load(2022, week = 51)
+
+weather_forecasts<- tuesdata$weather_forecasts
+cities<- tuesdata$cities
+outlook_meanings<- tuesdata$outlook_meanings
+
+df<-weather_forecasts%>%
+  select(date, city, state, high_or_low, forecast_hours_before, forecast_temp, observed_temp)%>%
+  na.omit()%>%
+  mutate(deviation=abs(forecast_temp-observed_temp))%>%
+  filter(forecast_hours_before==48)%>%
+  group_by(city)%>%
+  summarise(avg_deviation=round(mean(deviation),1))%>%
+  left_join(cities %>% select(city,state, lon, lat), by = "city")%>%
+  filter(!state%in% c("AK", "HI", "PR", "VI"))
+
+
+ggplot(data = map_data("state"), aes(long, lat, group=group))+
+  geom_polygon(color="gray62", fill="white")+
+  coord_quickmap()+
+  theme_void()+
+  geom_point(data = df, aes(lon, lat, group=avg_deviation, colour=avg_deviation), size=3)+
+  scale_color_gradientn(colours = terrain.colors(10))+
+  labs(title = "48 Hour Forecast Accuracy by City",
+       color="Avg. Temperature Deviation Degrees",
+       caption = "Source: US National Weather Service")+
+  guides(colour = guide_legend(title.position = "top"))+
+  theme(legend.position = "bottom", 
+        plot.title = element_text(hjust = .5, 
+                                  face = "bold", 
+                                  color = "grey29", 
+                                  size = 16), 
+        legend.title = element_text(hjust = .5,
+                                    size = 9),
+        plot.background = element_rect(fill="#F2F2F2"),
+        plot.margin = margin(2, 2, .9, 2, "cm"))
